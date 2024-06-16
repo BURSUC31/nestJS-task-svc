@@ -24,7 +24,7 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Service that serves the user to create usual tasks
 
 ## Installation
 
@@ -33,6 +33,10 @@ $ yarn install
 ```
 
 ## Running the app
+
+Run:
+
+1. `docker compose up`
 
 ```bash
 # development
