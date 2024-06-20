@@ -24,6 +24,7 @@ export class User extends BaseEntity {
   @Column()
   salt: string;
 
+  /* eslint-disable @typescript-eslint/no-unused-vars */
   @OneToMany((type) => Task, (task) => task.user, { eager: true })
   tasks: Task[];
 

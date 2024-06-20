@@ -25,7 +25,7 @@ export class Task extends BaseEntity {
   @Column()
   userId: number;
 
-  //pescript-eslint/no-unused-vars
-  @ManyToOne((type) => User, (user) => user.tasks, { eager: false })
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  @ManyToOne((_type) => User, (user) => user.tasks, { eager: false })
   user: User;
 }
