@@ -36,11 +36,9 @@ $ yarn install
 
 Run:
 
-1. `docker compose up`
-
 ```bash
 # development
-$ yarn run start
+$ yarn dev
 
 # watch mode
 $ yarn run start:dev
