@@ -36,7 +36,7 @@ $ yarn install
 
 Run:
 
-```bash
+````bash
 # development
 $ yarn dev
 
@@ -45,8 +45,11 @@ $ yarn run start:dev
 
 # production mode
 $ yarn run start:prod
-```
 
+zip -r app-version.zip . -x "node_modules/*" "terraform*" ".terraform*" ".terraform/*" "main.tf" "*.tfstate" "*.tfstate.backup" ".terraform.lock.hcl"
+
+add envs
+cat /opt/elasticbeanstalk/deployment/env
 ## Test
 
 ```bash
@@ -58,7 +61,7 @@ $ yarn run test:e2e
 
 # test coverage
 $ yarn run test:cov
-```
+````
 
 ## License
 

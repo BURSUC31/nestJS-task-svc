@@ -1,6 +1,7 @@
 // config.interface.ts
 export interface ServerConfig {
     port: number;
+    origin: string
 }
 
 export interface JwtConfig {
