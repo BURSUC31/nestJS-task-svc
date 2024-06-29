@@ -170,7 +170,7 @@ resource "aws_elastic_beanstalk_environment" "production" {
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "TYPEORM_SYNC"
-    value     = "false"
+    value     = "true"
   }
 
   setting {
