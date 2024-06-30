@@ -1,0 +1,66 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    ports:
+      - 5432:5432
+    volumes:
+      - ~/apps/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+
+
+
+
+
+
+      version: "3.8"
+
+services:
+  api:
+    image: 953207960640.dkr.ecr.us-east-1.amazonaws.com/crewcall-api-production:${IMAGE_TAG:-latest}
+    platform: linux/amd64
+    restart: always
+    ports:
+      - 3000:3000
+    environment:
+      - NODE_ENV=production
+      - PORT=3000 
+      - DB_PORT=5432
+      - JWT_SECRET=fF1t=;cOSI[l
+      - RDS_DB_NAME=${RDS_DB_NAME}
+      - RDS_HOSTNAME=${RDS_HOSTNAME}
+      - RDS_PASSWORD=${RDS_PASSWORD}
+      - TYPEORM_SYNC=true
+    volumes:
+      - public_assets:/app/shared/public
+
+
+  nginx:
+    image: nginx:alpine
+    platform: linux/amd64
+    restart: always
+    ports:
+      - 80:80
+    volumes:
+      - public_assets:/app/public
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+
+
+  postgres:
+    image: postgres:14-alpine
+    restart: always
+    ports:
+      - 5432:5432
+    volumes:
+      - ~/apps/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${RDS_DB_NAME}  # Set the default database name
+      - POSTGRES_USER=${RDS_USERNAME:-postgres}  # Set the default username (postgres in this case)
+      - POSTGRES_PASSWORD=${RDS_PASSWORD}
+      
+volumes:
+  public_assets:

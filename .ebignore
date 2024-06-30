@@ -1,0 +1,4 @@
+*
+!.ebextensions
+!docker-compose.yml
+!nginx.conf

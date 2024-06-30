@@ -1,4 +1,0 @@
-server:
-  origin: http://dmt-task-app.s3-website.eu-central-1.amazonaws.com
-db:
-  synchronize: false

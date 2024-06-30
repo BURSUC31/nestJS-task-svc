@@ -2,17 +2,28 @@ provider "aws" {
   region = "eu-central-1"
 }
 
+resource "aws_db_parameter_group" "postgres_parameters" {
+  name        = "postgres16-parameter-group"
+  family      = "postgres16"
+  description = "Custom parameter group for Postgres 15"
 
-resource "aws_db_instance" "postgres_db" {
-  allocated_storage   = 5
-  engine              = "postgres"
-  engine_version      = "16.3"
-  instance_class      = "db.t3.micro"
-  username            = "postgres"
-  password            = "SW&K7OSS^RY^"
-  publicly_accessible = true
+  parameter {
+    name         = "rds.force_ssl"
+    value        = "0"
+    apply_method = "pending-reboot"
+  }
 }
 
+resource "aws_db_instance" "postgres_db" {
+  allocated_storage    = 5
+  engine               = "postgres"
+  engine_version       = "16.3"
+  instance_class       = "db.t3.micro"
+  username             = "postgres"
+  password             = "SW&K7OSS^RY^"
+  publicly_accessible  = true
+  parameter_group_name = aws_db_parameter_group.postgres_parameters.name
+}
 
 resource "aws_iam_policy" "rds_access_policy" {
   name        = "RDSAccessPolicyNode"
@@ -64,12 +75,6 @@ resource "aws_iam_role_policy_attachment" "s3_access_policy_attachment" {
   policy_arn = aws_iam_policy.s3_access_policy.arn
 }
 
-resource "terraform_data" "upload_app_bundle" {
-  provisioner "local-exec" {
-    command = "aws s3 cp ./app-version.zip s3://${aws_s3_bucket.app_bucket.bucket}/app-version.zip"
-  }
-}
-
 resource "aws_iam_role" "elastic_beanstalk_role" {
   name = "elastic_beanstalk_role_node"
   assume_role_policy = jsonencode({
@@ -95,16 +100,22 @@ resource "aws_iam_instance_profile" "elastic_beanstalk_instance_profile" {
   role = aws_iam_role.elastic_beanstalk_role.name
 }
 
-resource "aws_elastic_beanstalk_application" "dmt_app" {
-  name        = "production-dimi-node"
-  description = "describe-my-beanstalk-app"
-}
-
 resource "aws_s3_bucket" "app_bucket" {
   bucket = "my-app-bucket-nestjs"
   lifecycle {
     create_before_destroy = true
   }
+}
+
+resource "terraform_data" "upload_app_bundle" {
+  provisioner "local-exec" {
+    command = "aws s3 cp ./app-version.zip s3://${aws_s3_bucket.app_bucket.bucket}/app-version.zip"
+  }
+}
+
+resource "aws_elastic_beanstalk_application" "dmt_app" {
+  name        = "production-dimi-node"
+  description = "describe-my-beanstalk-app"
 }
 
 resource "aws_elastic_beanstalk_application_version" "app_version" {
@@ -178,11 +189,7 @@ resource "aws_elastic_beanstalk_environment" "production" {
     name      = "NodeCommand"
     value     = "yarn start"
   }
-
-
 }
-
-
 
 output "eb_environment_url" {
   value = aws_elastic_beanstalk_environment.production.endpoint_url
