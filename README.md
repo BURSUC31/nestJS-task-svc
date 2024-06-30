@@ -64,11 +64,7 @@ $ yarn run test:cov
 ````
 
 
-docker build --target production -t crewcall-api-production:latest .
-docker tag crewcall-api-production:latest 953207960640.dkr.ecr.eu-central-1.amazonaws.com/crewcall-api-production:latest
 
-
-docker push 953207960640.dkr.ecr.eu-central-1.amazonaws.com/crewcall-api-production:latest
 
 ## License
 
