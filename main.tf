@@ -2,6 +2,11 @@ provider "aws" {
   region = "eu-central-1"
 }
 
+resource "aws_key_pair" "ec2_key_pair" {
+  key_name   = var.ssh_key_name
+  public_key = file(var.ssh_file_name)
+}
+
 resource "aws_db_parameter_group" "postgres_parameters" {
   name        = "postgres16-parameter-group"
   family      = "postgres16"
@@ -14,15 +19,33 @@ resource "aws_db_parameter_group" "postgres_parameters" {
   }
 }
 
+resource "aws_security_group" "rds_security_group" {
+  name        = "rds_security_group"
+  description = "Security group for RDS instance"
+
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.eb_security_group.id]
+  }
+}
+
+
 resource "aws_db_instance" "postgres_db" {
-  allocated_storage    = 5
+  allocated_storage    = 20
   engine               = "postgres"
   engine_version       = "16.3"
-  instance_class       = "db.t3.micro"
+  instance_class       = "db.t4g.micro"
   username             = "postgres"
-  password             = "SW&K7OSS^RY^"
+  password             = var.db_password
+  db_name              = "postgres"
   publicly_accessible  = true
   parameter_group_name = aws_db_parameter_group.postgres_parameters.name
+  skip_final_snapshot  = true
+  storage_type         = "gp2"
+
+  vpc_security_group_ids = [aws_security_group.rds_security_group.id]
 }
 
 resource "aws_iam_policy" "rds_access_policy" {
@@ -113,6 +136,19 @@ resource "terraform_data" "upload_app_bundle" {
   }
 }
 
+
+resource "aws_security_group" "eb_security_group" {
+  name        = "elastic_beanstalk_sg"
+  description = "Security group for Elastic Beanstalk environment"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
 resource "aws_elastic_beanstalk_application" "dmt_app" {
   name        = "production-dimi-node"
   description = "describe-my-beanstalk-app"
@@ -125,16 +161,64 @@ resource "aws_elastic_beanstalk_application_version" "app_version" {
   key         = "app-version.zip"
   depends_on  = [terraform_data.upload_app_bundle]
 
+
   lifecycle {
     create_before_destroy = true
   }
 }
-
 resource "aws_elastic_beanstalk_environment" "production" {
   name                = "production"
   application         = aws_elastic_beanstalk_application.dmt_app.name
   solution_stack_name = "64bit Amazon Linux 2023 v6.1.6 running Node.js 20"
   version_label       = aws_elastic_beanstalk_application_version.app_version.name
+
+  setting {
+    namespace = "aws:autoscaling:launchconfiguration"
+    name      = "EC2KeyName"
+    value     = aws_key_pair.ec2_key_pair.key_name
+  }
+
+  setting {
+    namespace = "aws:autoscaling:asg"
+    name      = "MinSize"
+    value     = "1"
+  }
+
+  setting {
+    namespace = "aws:autoscaling:asg"
+    name      = "MaxSize"
+    value     = "1"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment"
+    name      = "EnvironmentType"
+    value     = "SingleInstance"
+  }
+
+  setting {
+    namespace = "aws:autoscaling:launchconfiguration"
+    name      = "InstanceType"
+    value     = "t3.micro"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "StickinessEnabled"
+    value     = "false"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "EnhancedHealthReporting"
+    value     = "false"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "HealthCheckPath"
+    value     = "/health"
+  }
 
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
@@ -144,8 +228,20 @@ resource "aws_elastic_beanstalk_environment" "production" {
 
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "PORT"
+    value     = "5000"
+  }
+
+  setting {
+    namespace = "aws:autoscaling:launchconfiguration"
+    name      = "SecurityGroups"
+    value     = aws_security_group.eb_security_group.name
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
     name      = "RDS_HOSTNAME"
-    value     = aws_db_instance.postgres_db.endpoint
+    value     = aws_db_instance.postgres_db.address
   }
 
   setting {
@@ -163,7 +259,7 @@ resource "aws_elastic_beanstalk_environment" "production" {
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "RDS_DB_NAME"
-    value     = "postgres"
+    value     = aws_db_instance.postgres_db.db_name
   }
 
   setting {
@@ -175,7 +271,7 @@ resource "aws_elastic_beanstalk_environment" "production" {
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "JWT_SECRET"
-    value     = "fF1t=;cOSI[l"
+    value     = var.jwt_secret
   }
 
   setting {
@@ -186,15 +282,36 @@ resource "aws_elastic_beanstalk_environment" "production" {
 
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
-    name      = "NodeCommand"
-    value     = "yarn start"
+    name      = "DB_PORT"
+    value     = "5432"
   }
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "S3_BUCKET"
+    value     = aws_s3_bucket.app_bucket.bucket
+  }
+
+  depends_on = [
+    aws_elastic_beanstalk_application_version.app_version,
+    aws_security_group.eb_security_group
+  ]
 }
 
-output "eb_environment_url" {
-  value = aws_elastic_beanstalk_environment.production.endpoint_url
-}
 
-output "postgres_db_endpoint" {
-  value = aws_db_instance.postgres_db.endpoint
+# output "eb_environment_url" {
+#   value = aws_elastic_beanstalk_environment.production.endpoint_url
+# }
+
+
+output "eb_security_group_id" {
+  value = aws_elastic_beanstalk_environment.production.load_balancers
+
 }
+# output "postgres_db_endpoint" {
+#   value = aws_db_instance.postgres_db.endpoint
+# }
+
+# output "eb_security_group_id" {
+#   value = aws_security_group.eb_security_group.id
+# }
+
